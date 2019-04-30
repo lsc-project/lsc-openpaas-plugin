@@ -40,56 +40,21 @@
  *         Raphael Ouazana <rouazana@linagora.com>
  ****************************************************************************
  */
-package org.lsc.plugins.connectors.openpaas;
+package org.lsc.plugins.connectors.openpaas.beans;
 
-import java.util.List;
+import org.codehaus.jackson.annotate.JsonSubTypes;
+import org.codehaus.jackson.annotate.JsonSubTypes.Type;
+import org.codehaus.jackson.annotate.JsonTypeInfo;
 
-import javax.ws.rs.ProcessingException;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.GenericType;
-
-import org.glassfish.jersey.client.filter.HttpBasicAuthFilter;
-import org.glassfish.jersey.jackson.JacksonFeature;
-import org.lsc.configuration.TaskType;
-import org.lsc.plugins.connectors.openpaas.beans.Group;
-import org.lsc.plugins.connectors.openpaas.beans.GroupItem;
-import org.lsc.plugins.connectors.openpaas.beans.GroupWithMembersEmails;
-import org.lsc.plugins.connectors.openpaas.beans.Member;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-public class OpenpaasDao {
-	
-	public static final String BASE_PATH = "/group/api/groups/"; 
-	
-	protected static final Logger LOGGER = LoggerFactory.getLogger(OpenpaasDao.class);
-
-	private WebTarget client;
-	
-	public OpenpaasDao(String url, String username, String password, TaskType task) {
-		client = ClientBuilder.newClient()
-				.register(new HttpBasicAuthFilter(username, password))
-				.register(JacksonFeature.class)
-				.target(url)
-				.path(BASE_PATH);
-	}
-	
-	public List<GroupItem> getGroupList() throws ProcessingException, WebApplicationException {
-		WebTarget target = client.path("");
-		LOGGER.debug("GETting " + ":" + target.getUri().toString());
-		return target.request().get(new GenericType<List<GroupItem>>(){});
-	}
-
-	public GroupWithMembersEmails getGroup(String mainIdentifier) throws ProcessingException, WebApplicationException {
-		WebTarget groupTarget = client.path(mainIdentifier);
-		WebTarget membersTarget = client.path(mainIdentifier).path("members");
-		LOGGER.debug("GETting group: " + groupTarget.getUri().toString());
-		Group group = groupTarget.request().get(Group.class);
-		LOGGER.debug("GETting group members: " + membersTarget.getUri().toString());
-		List<Member> members = membersTarget.request().get(new GenericType<List<Member>>(){});
-		return new GroupWithMembersEmails(group, members);
-	}
-
+@JsonTypeInfo(
+	    use = JsonTypeInfo.Id.NAME,
+	    include = JsonTypeInfo.As.PROPERTY,
+	    property = "objectType")
+	@JsonSubTypes({
+	    @Type(value = EmailMember.class, name = "email"),
+	    @Type(value = UserMember.class, name = "user") })
+public interface Member {
+	String getObjectType();
+	String getId();
+	String getEmail();
 }

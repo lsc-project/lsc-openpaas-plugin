@@ -65,6 +65,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.lsc.LscDatasets;
+import org.lsc.beans.IBean;
 import org.lsc.configuration.PluginConnectionType;
 import org.lsc.configuration.PluginDestinationServiceType;
 import org.lsc.configuration.ServiceType.Connection;
@@ -74,6 +75,7 @@ import org.testcontainers.containers.DockerComposeContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import io.restassured.RestAssured;
 import io.restassured.authentication.PreemptiveBasicAuthScheme;
@@ -82,6 +84,7 @@ import io.restassured.http.ContentType;
 
 public class OpenpaasGroupDstServiceTest {
 	private static final int ESN_PORT = 8080;
+	private static final boolean FROM_SAME_SERVICE = true;
     
 	private static DockerComposeContainer<?> esn;
 	
@@ -251,6 +254,110 @@ public class OpenpaasGroupDstServiceTest {
         assertThat(listPivots.get(groupId).getStringValueAttribute("name")).isEqualTo(groupName);
         assertThat(listPivots.get(groupId).getStringValueAttribute("email")).isEqualTo(groupEmail);
         assertThat(listPivots.get(groupId).getListValueAttribute("members")).hasSize(1);
+	}
+
+	@Test
+	public void getBeanShouldReturnNullWhenEmptyDataset() throws Exception {
+        testee = new OpenpaasGroupDstService(task);
+
+		assertThat(testee.getBean("id", new LscDatasets(), FROM_SAME_SERVICE)).isNull();
+	}
+
+	@Test
+	public void getBeanShouldReturnNullWhenNoMatchingId() throws Exception {
+        testee = new OpenpaasGroupDstService(task);
+
+		LscDatasets nonExistingIdDataset = new LscDatasets(ImmutableMap.of("id", "nonExistingId"));
+		assertThat(testee.getBean("id", nonExistingIdDataset, FROM_SAME_SERVICE))
+			.isNull();
+	}
+	
+	@Test
+	public void getBeanShouldReturnExternalMemberWhenPresent() throws Exception {
+		String groupName = "test group";
+		String groupEmail = "test-group@open-paas.org";
+		String member = "member@example.com";
+		String groupId = createGroup(groupName, groupEmail, ImmutableList.of(member));
+
+        testee = new OpenpaasGroupDstService(task);
+
+        Map<String, LscDatasets> pivots = testee.getListPivots();
+        IBean bean = testee.getBean("id", pivots.get(groupId), FROM_SAME_SERVICE);
+        
+        assertThat(bean.getDatasetFirstValueById("name")).isEqualTo(groupName);
+        assertThat(bean.getDatasetFirstValueById("email")).isEqualTo(groupEmail);
+        assertThat(bean.getDatasetById("membersEmails")).containsOnly(member);
+	}
+	
+	@Test
+	public void getBeanShouldReturnExternalMembersWhenPresent() throws Exception {
+		String groupName = "test group";
+		String groupEmail = "test-group@open-paas.org";
+		String member1 = "member1@example.com";
+		String member2 = "member2@example.com";
+		String groupId = createGroup(groupName, groupEmail, ImmutableList.of(member1, member2));
+
+        testee = new OpenpaasGroupDstService(task);
+
+        Map<String, LscDatasets> pivots = testee.getListPivots();
+        IBean bean = testee.getBean("id", pivots.get(groupId), FROM_SAME_SERVICE);
+        
+        assertThat(bean.getDatasetFirstValueById("name")).isEqualTo(groupName);
+        assertThat(bean.getDatasetFirstValueById("email")).isEqualTo(groupEmail);
+        assertThat(bean.getDatasetById("membersEmails")).containsOnly(member1, member2);
+	}
+	
+	@Test
+	public void getBeanShouldReturnInternalMemberWhenPresent() throws Exception {
+		String groupName = "test group";
+		String groupEmail = "test-group@open-paas.org";
+		String member = "user1@open-paas.org";
+		String groupId = createGroup(groupName, groupEmail, ImmutableList.of(member));
+
+        testee = new OpenpaasGroupDstService(task);
+
+        Map<String, LscDatasets> pivots = testee.getListPivots();
+        IBean bean = testee.getBean("id", pivots.get(groupId), FROM_SAME_SERVICE);
+        
+        assertThat(bean.getDatasetFirstValueById("name")).isEqualTo(groupName);
+        assertThat(bean.getDatasetFirstValueById("email")).isEqualTo(groupEmail);
+        assertThat(bean.getDatasetById("membersEmails")).containsOnly(member);
+	}
+	
+	@Test
+	public void getBeanShouldReturnInternalMembersWhenPresent() throws Exception {
+		String groupName = "test group";
+		String groupEmail = "test-group@open-paas.org";
+		String member1 = "user1@open-paas.org";
+		String member2 = "user2@open-paas.org";
+		String groupId = createGroup(groupName, groupEmail, ImmutableList.of(member1, member2));
+
+        testee = new OpenpaasGroupDstService(task);
+
+        Map<String, LscDatasets> pivots = testee.getListPivots();
+        IBean bean = testee.getBean("id", pivots.get(groupId), FROM_SAME_SERVICE);
+        
+        assertThat(bean.getDatasetFirstValueById("name")).isEqualTo(groupName);
+        assertThat(bean.getDatasetFirstValueById("email")).isEqualTo(groupEmail);
+        assertThat(bean.getDatasetById("membersEmails")).containsOnly(member1, member2);
+	}
+
+	@Test
+	public void getBeanShouldReturnMixedMembersWhenPresent() throws Exception {
+		String groupName = "test group";
+		String groupEmail = "test-group@open-paas.org";
+		String internalMember = "user1@open-paas.org";
+		String externalMember = "member@exemple.com";
+		String groupId = createGroup(groupName, groupEmail, ImmutableList.of(internalMember, externalMember));
+
+        testee = new OpenpaasGroupDstService(task);
+
+        Map<String, LscDatasets> pivots = testee.getListPivots();
+        IBean bean = testee.getBean("id", pivots.get(groupId), FROM_SAME_SERVICE);
+        
+        assertThat(bean.getDatasetFirstValueById("name")).isEqualTo(groupName);
+        assertThat(bean.getDatasetFirstValueById("email")).isEqualTo(groupEmail);
+        assertThat(bean.getDatasetById("membersEmails")).containsOnly(internalMember, externalMember);
 	}
 
 	private String createGroup(String name, String email) {

@@ -46,6 +46,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.ws.rs.NotFoundException;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.WebApplicationException;
 
@@ -59,6 +60,7 @@ import org.lsc.exception.LscServiceCommunicationException;
 import org.lsc.exception.LscServiceConfigurationException;
 import org.lsc.exception.LscServiceException;
 import org.lsc.plugins.connectors.openpaas.beans.GroupItem;
+import org.lsc.plugins.connectors.openpaas.beans.GroupWithMembersEmails;
 import org.lsc.plugins.connectors.openpaas.generated.OpenpaasGroupService;
 import org.lsc.plugins.connectors.openpaas.generated.OpenpaasService;
 import org.lsc.service.IWritableService;
@@ -108,7 +110,42 @@ public class OpenpaasGroupDstService implements IWritableService {
 	public IBean getBean(String pivotName, LscDatasets pivotAttributes, boolean fromSameService)
 			throws LscServiceException {
 		LOGGER.debug(String.format("Call to getBean(%s, %s, %b)", pivotName, pivotAttributes, fromSameService));
-		throw new NotImplementedException();
+		if (pivotAttributes.getAttributesNames().size() < 1) {
+			return null;
+		}
+		String id = pivotAttributes.getStringValueAttribute(pivotName);
+		if (id == null) {
+			return null;
+		}
+		try {
+			GroupWithMembersEmails group = openpaasDao.getGroup(id);
+			return groupToBean(group);
+		} catch (ProcessingException e) {
+			LOGGER.error(String.format("ProcessingException while getting bean %s/%s (%s)",
+					pivotName, id, e));
+			LOGGER.debug(e.toString(), e);
+			throw new LscServiceCommunicationException(e);
+		} catch (NotFoundException e) {
+			LOGGER.debug(String.format("%s/%s not found", pivotName, id));
+			return null;
+		} catch (WebApplicationException e) {
+			LOGGER.error(String.format("WebApplicationException while getting bean %s/%s (%s)",
+					pivotName, id, e));
+			LOGGER.debug(e.toString(), e);
+			throw new LscServiceException(e);
+		} catch (InstantiationException | IllegalAccessException e) {
+			LOGGER.error("Bad class name: " + beanClass.getName() + "(" + e + ")");
+			LOGGER.debug(e.toString(), e);
+			throw new LscServiceException(e);
+		}
+
+	}
+
+	private IBean groupToBean(GroupWithMembersEmails group) throws InstantiationException, IllegalAccessException {
+		IBean bean = beanClass.newInstance();
+		bean.setMainIdentifier(group.getId());
+		bean.setDatasets(group.toDatasets());
+		return bean;
 	}
 
 	@Override
