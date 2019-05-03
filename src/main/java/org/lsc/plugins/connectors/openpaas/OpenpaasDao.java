@@ -43,48 +43,63 @@
 package org.lsc.plugins.connectors.openpaas;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.ClientBuilder;
+import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.GenericType;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
 
+import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.glassfish.jersey.client.filter.HttpBasicAuthFilter;
 import org.glassfish.jersey.jackson.JacksonFeature;
 import org.lsc.configuration.TaskType;
 import org.lsc.plugins.connectors.openpaas.beans.Group;
 import org.lsc.plugins.connectors.openpaas.beans.GroupItem;
 import org.lsc.plugins.connectors.openpaas.beans.GroupWithMembersEmails;
+import org.lsc.plugins.connectors.openpaas.beans.GroupWithMembersEmails.Membership;
 import org.lsc.plugins.connectors.openpaas.beans.Member;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class OpenpaasDao {
 	
-	public static final String BASE_PATH = "/group/api/groups/"; 
+	public static final String GROUP_PATH = "/group/api/groups"; 
+	public static final String USER_PATH = "/api/users"; 
 	
 	protected static final Logger LOGGER = LoggerFactory.getLogger(OpenpaasDao.class);
 
-	private WebTarget client;
+	private WebTarget groupClient;
+	private WebTarget userClient;
 	
 	public OpenpaasDao(String url, String username, String password, TaskType task) {
-		client = ClientBuilder.newClient()
+		groupClient = ClientBuilder.newClient()
 				.register(new HttpBasicAuthFilter(username, password))
 				.register(JacksonFeature.class)
 				.target(url)
-				.path(BASE_PATH);
+				.path(GROUP_PATH);
+		userClient = ClientBuilder.newClient()
+				.register(new HttpBasicAuthFilter(username, password))
+				.register(JacksonFeature.class)
+				.target(url)
+				.path(USER_PATH);
 	}
 	
 	public List<GroupItem> getGroupList() throws ProcessingException, WebApplicationException {
-		WebTarget target = client.path("");
+		WebTarget target = groupClient.path("");
 		LOGGER.debug("GETting " + ":" + target.getUri().toString());
 		return target.request().get(new GenericType<List<GroupItem>>(){});
 	}
 
 	public GroupWithMembersEmails getGroup(String mainIdentifier) throws ProcessingException, WebApplicationException {
-		WebTarget groupTarget = client.path(mainIdentifier);
-		WebTarget membersTarget = client.path(mainIdentifier).path("members");
+		WebTarget groupTarget = groupClient.path(mainIdentifier);
+		WebTarget membersTarget = groupClient.path(mainIdentifier).path("members");
 		LOGGER.debug("GETting group: " + groupTarget.getUri().toString());
 		Group group = groupTarget.request().get(Group.class);
 		LOGGER.debug("GETting group members: " + membersTarget.getUri().toString());
@@ -92,4 +107,151 @@ public class OpenpaasDao {
 		return new GroupWithMembersEmails(group, members);
 	}
 
+	public boolean createGroup(GroupWithMembersEmails newGroup) {
+		WebTarget target = groupClient.path("");
+		LOGGER.debug("POSTing group: " + target.getUri().toString());
+		Response response = target.request().post(Entity.entity(newGroup, MediaType.APPLICATION_JSON_TYPE));
+		String rawResponseBody = response.readEntity(String.class);
+		response.close();
+		if (checkResponse(response)) {
+			LOGGER.debug("POST is successful");
+			return true;
+		} else {
+			LOGGER.error(String.format("Error %d (%s - %s) while creating group: %s",
+					response.getStatus(),
+					response.getStatusInfo(),
+					rawResponseBody,
+					target.getUri().toString()));
+			return false;
+		}
+	}
+	
+	public boolean deleteGroup(String mainIdentifier) {
+		WebTarget target = groupClient.path(mainIdentifier);
+		LOGGER.debug("DELETing group: " + target.getUri().toString());
+		Response response = target.request().delete();
+		String rawResponseBody = response.readEntity(String.class);
+		response.close();
+		if (checkResponse(response)) {
+			LOGGER.debug("DELETE is successful");
+			return true;
+		} else {
+			LOGGER.error(String.format("Error %d (%s - %s) while deleting group: %s",
+					response.getStatus(),
+					response.getStatusInfo(),
+					rawResponseBody,
+					target.getUri().toString()));
+			return false;
+		}
+	}
+
+	public boolean modifyGroup(GroupWithMembersEmails modifiedGroup) {
+		WebTarget target = groupClient.path(modifiedGroup.getId());
+		LOGGER.debug("POSTing group: " + target.getUri().toString());
+		Response response = target.request().post(Entity.entity(modifiedGroup, MediaType.APPLICATION_JSON_TYPE));
+		String rawResponseBody = response.readEntity(String.class);
+		response.close();
+		if (checkResponse(response)) {
+			LOGGER.debug("POST is successful");
+			return modifyGroupMembership(target, modifiedGroup);
+		} else {
+			LOGGER.error(String.format("Error %d (%s - %s) while modifying group: %s",
+					response.getStatus(),
+					response.getStatusInfo(),
+					rawResponseBody,
+					target.getUri().toString()));
+			return false;
+		}
+	}
+
+	private static boolean checkResponse(Response response) {
+		return Status.Family.familyOf(response.getStatus()) == Status.Family.SUCCESSFUL;
+	}
+	
+	private boolean modifyGroupMembership(WebTarget groupTarget, GroupWithMembersEmails group) {
+		return addMembersToGroup(groupTarget, group.getMembersToAdd())
+			&& removeMembersToGroup(groupTarget, group.getMembersToRemove());
+	}
+
+	private boolean addMembersToGroup(WebTarget groupTarget, List<Membership> membersToAdd) {
+		if (membersToAdd.size() == 0) {
+			return true;
+		}
+		WebTarget target = groupTarget.path("members").queryParam("action", "add");
+		LOGGER.debug("POSTing group: " + target.getUri().toString());
+		Response response = target.request().post(Entity.entity(membersToAdd, MediaType.APPLICATION_JSON_TYPE));
+		String rawResponseBody = response.readEntity(String.class);
+		response.close();
+		if (checkResponse(response)) {
+			LOGGER.debug("POST is successful");
+			return true;
+		} else {
+			LOGGER.error(String.format("Error %d (%s - %s) while modifying group: %s",
+					response.getStatus(),
+					response.getStatusInfo(),
+					rawResponseBody,
+					target.getUri().toString()));
+			return false;
+		}
+	}
+
+	private boolean removeMembersToGroup(WebTarget groupTarget, List<Membership> membersToRemove) {
+		if (membersToRemove.size() == 0) {
+			return true;
+		}
+		List<Membership> membersToRemoveWithIdForInternalMembers = replaceEmailByIdForInternalMembersToRemove(membersToRemove);
+		WebTarget target = groupTarget.path("members").queryParam("action", "remove");
+		LOGGER.debug("POSTing group: " + target.getUri().toString());
+		Response response = target.request().post(Entity.entity(membersToRemoveWithIdForInternalMembers, MediaType.APPLICATION_JSON_TYPE));
+		String rawResponseBody = response.readEntity(String.class);
+		response.close();
+		if (checkResponse(response)) {
+			LOGGER.debug("POST is successful");
+			return true;
+		} else {
+			LOGGER.error(String.format("Error %d (%s - %s) while modifying group: %s",
+					response.getStatus(),
+					response.getStatusInfo(),
+					rawResponseBody,
+					target.getUri().toString()));
+			return false;
+		}
+	}
+	
+	private List<Membership> replaceEmailByIdForInternalMembersToRemove(List<Membership> membersToRemove) {
+		return membersToRemove.stream()
+			.map(this::replaceEmailByIdIfInternalMember)
+			.collect(Collectors.toList());
+	}
+	
+	private Membership replaceEmailByIdIfInternalMember(Membership membership) {
+		String email = membership.getId();
+		Optional<String> id = lookForId(email);
+		return id
+			.map(Membership::fromId)
+			.orElse(membership);
+	}
+
+	private Optional<String> lookForId(String email) {
+		WebTarget userTarget = userClient.queryParam("email", email);
+		LOGGER.debug("GETting user: " + userTarget.getUri().toString());
+		List<User> users = userTarget.request().get(new GenericType<List<User>>(){});
+		if (users.isEmpty()) {
+			return Optional.empty();
+		}
+		if (users.size() > 1) {
+			LOGGER.warn(String.format("Too many users (%d) found for email: %s", users.size(), email));
+			return Optional.empty();
+		}
+		return Optional.of(users.get(0).getId());
+	}
+	
+	@JsonIgnoreProperties(ignoreUnknown = true)
+	private static class User {
+		private String id;
+		
+		public String getId() {
+			return id;
+		}
+	}
 }

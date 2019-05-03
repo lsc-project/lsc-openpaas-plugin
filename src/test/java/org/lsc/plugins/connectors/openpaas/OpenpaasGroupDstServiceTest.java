@@ -64,7 +64,11 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.lsc.LscDatasetModification;
+import org.lsc.LscDatasetModification.LscDatasetModificationType;
 import org.lsc.LscDatasets;
+import org.lsc.LscModificationType;
+import org.lsc.LscModifications;
 import org.lsc.beans.IBean;
 import org.lsc.configuration.PluginConnectionType;
 import org.lsc.configuration.PluginDestinationServiceType;
@@ -286,7 +290,7 @@ public class OpenpaasGroupDstServiceTest {
         
         assertThat(bean.getDatasetFirstValueById("name")).isEqualTo(groupName);
         assertThat(bean.getDatasetFirstValueById("email")).isEqualTo(groupEmail);
-        assertThat(bean.getDatasetById("membersEmails")).containsOnly(member);
+        assertThat(bean.getDatasetById("members")).containsOnly(member);
 	}
 	
 	@Test
@@ -304,7 +308,7 @@ public class OpenpaasGroupDstServiceTest {
         
         assertThat(bean.getDatasetFirstValueById("name")).isEqualTo(groupName);
         assertThat(bean.getDatasetFirstValueById("email")).isEqualTo(groupEmail);
-        assertThat(bean.getDatasetById("membersEmails")).containsOnly(member1, member2);
+        assertThat(bean.getDatasetById("members")).containsOnly(member1, member2);
 	}
 	
 	@Test
@@ -321,7 +325,7 @@ public class OpenpaasGroupDstServiceTest {
         
         assertThat(bean.getDatasetFirstValueById("name")).isEqualTo(groupName);
         assertThat(bean.getDatasetFirstValueById("email")).isEqualTo(groupEmail);
-        assertThat(bean.getDatasetById("membersEmails")).containsOnly(member);
+        assertThat(bean.getDatasetById("members")).containsOnly(member);
 	}
 	
 	@Test
@@ -339,7 +343,7 @@ public class OpenpaasGroupDstServiceTest {
         
         assertThat(bean.getDatasetFirstValueById("name")).isEqualTo(groupName);
         assertThat(bean.getDatasetFirstValueById("email")).isEqualTo(groupEmail);
-        assertThat(bean.getDatasetById("membersEmails")).containsOnly(member1, member2);
+        assertThat(bean.getDatasetById("members")).containsOnly(member1, member2);
 	}
 
 	@Test
@@ -357,7 +361,298 @@ public class OpenpaasGroupDstServiceTest {
         
         assertThat(bean.getDatasetFirstValueById("name")).isEqualTo(groupName);
         assertThat(bean.getDatasetFirstValueById("email")).isEqualTo(groupEmail);
-        assertThat(bean.getDatasetById("membersEmails")).containsOnly(internalMember, externalMember);
+        assertThat(bean.getDatasetById("members")).containsOnly(internalMember, externalMember);
+	}
+
+	@Test
+	public void createShouldFailWithoutName() throws Exception {
+		LscModifications modifications = new LscModifications(LscModificationType.CREATE_OBJECT);
+		String groupEmail = "new-group-email@open-paas.org";
+		LscDatasetModification emailModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "email", ImmutableList.of(groupEmail));
+		modifications.setLscAttributeModifications(ImmutableList.of(emailModification));
+
+		testee = new OpenpaasGroupDstService(task);
+		
+		boolean applied = testee.apply(modifications);
+		
+		assertThat(applied).isFalse();
+	}
+	
+	@Test
+	public void createShouldFailWithoutEmail() throws Exception {
+		LscModifications modifications = new LscModifications(LscModificationType.CREATE_OBJECT);
+		String groupName = "new group name";
+		LscDatasetModification nameModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "name", ImmutableList.of(groupName));
+		modifications.setLscAttributeModifications(ImmutableList.of(nameModification));
+
+		testee = new OpenpaasGroupDstService(task);
+		
+		boolean applied = testee.apply(modifications);
+		
+		assertThat(applied).isFalse();
+	}
+	
+	@Test
+	public void createShouldCreateGroupWhenCreated() throws Exception {
+		LscModifications modifications = new LscModifications(LscModificationType.CREATE_OBJECT);
+		String groupName = "new group name";
+		LscDatasetModification nameModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "name", ImmutableList.of(groupName));
+		String groupEmail = "new-group-email@open-paas.org";
+		LscDatasetModification emailModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "email", ImmutableList.of(groupEmail));
+		modifications.setLscAttributeModifications(ImmutableList.of(nameModification, emailModification));
+
+		testee = new OpenpaasGroupDstService(task);
+		
+		boolean applied = testee.apply(modifications);
+		
+		assertThat(applied).isTrue();
+		
+		Map<String, LscDatasets> pivots = testee.getListPivots();
+        IBean bean = testee.getBean("id", pivots.get(pivots.keySet().iterator().next()), FROM_SAME_SERVICE);
+        
+        assertThat(bean.getDatasetFirstValueById("name")).isEqualTo(groupName);
+        assertThat(bean.getDatasetFirstValueById("email")).isEqualTo(groupEmail);
+	}
+	
+	@Test
+	public void createShouldCreateGroupWithMembersWhenCreated() throws Exception {
+		LscModifications modifications = new LscModifications(LscModificationType.CREATE_OBJECT);
+		String groupName = "new group name";
+		LscDatasetModification nameModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "name", ImmutableList.of(groupName));
+		String groupEmail = "new-group-email@open-paas.org";
+		LscDatasetModification emailModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "email", ImmutableList.of(groupEmail));
+		String internalMember = "user1@open-paas.org";
+		String externalMember = "member@exemple.com";
+		LscDatasetModification memberModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "members", ImmutableList.of(internalMember, externalMember));
+		modifications.setLscAttributeModifications(ImmutableList.of(nameModification, emailModification, memberModification));
+
+		testee = new OpenpaasGroupDstService(task);
+		
+		boolean applied = testee.apply(modifications);
+		
+		assertThat(applied).isTrue();
+		
+		Map<String, LscDatasets> pivots = testee.getListPivots();
+        IBean bean = testee.getBean("id", pivots.get(pivots.keySet().iterator().next()), FROM_SAME_SERVICE);
+        
+        assertThat(bean.getDatasetFirstValueById("name")).isEqualTo(groupName);
+        assertThat(bean.getDatasetFirstValueById("email")).isEqualTo(groupEmail);
+        assertThat(bean.getDatasetById("members")).containsOnly(internalMember, externalMember);
+	}
+
+	
+	@Test
+	public void deleteShouldDeleteGroupWhenDeleted() throws Exception {
+		String groupName = "test group";
+		String groupEmail = "test-group@open-paas.org";
+		String groupId = createGroup(groupName, groupEmail, ImmutableList.of());
+
+		LscModifications modifications = new LscModifications(LscModificationType.DELETE_OBJECT);
+		modifications.setMainIdentifer(groupId);
+
+		testee = new OpenpaasGroupDstService(task);
+		
+		boolean applied = testee.apply(modifications);
+		
+		assertThat(applied).isTrue();
+		
+		Map<String, LscDatasets> pivots = testee.getListPivots();
+		assertThat(pivots).isEmpty();
+	}
+
+	@Test
+	public void applyShouldModifyGroupNameWhenModified() throws Exception {
+		String groupName = "test group";
+		String groupEmail = "test-group@open-paas.org";
+		String groupId = createGroup(groupName, groupEmail, ImmutableList.of());
+
+		LscModifications modifications = new LscModifications(LscModificationType.UPDATE_OBJECT);
+		modifications.setMainIdentifer(groupId);
+		String newGroupName = "test group new name";
+		LscDatasetModification nameModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "name", ImmutableList.of(newGroupName));
+		modifications.setLscAttributeModifications(ImmutableList.of(nameModification));
+
+		testee = new OpenpaasGroupDstService(task);
+
+		boolean applied = testee.apply(modifications);
+		
+		assertThat(applied).isTrue();
+
+		Map<String, LscDatasets> pivots = testee.getListPivots();
+		IBean bean = testee.getBean("id", pivots.get(groupId), FROM_SAME_SERVICE);
+
+		assertThat(bean.getDatasetFirstValueById("name")).isEqualTo(newGroupName);
+	}
+
+	@Test
+	public void applyShouldModifyGroupEmailWhenModified() throws Exception {
+		String groupName = "test group";
+		String groupEmail = "test-group@open-paas.org";
+		String groupId = createGroup(groupName, groupEmail, ImmutableList.of());
+
+		LscModifications modifications = new LscModifications(LscModificationType.UPDATE_OBJECT);
+		modifications.setMainIdentifer(groupId);
+		String newGroupEmail = "test-group-modified@open-paas.org";
+		LscDatasetModification emailModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "email", ImmutableList.of(newGroupEmail));
+		modifications.setLscAttributeModifications(ImmutableList.of(emailModification));
+
+		testee = new OpenpaasGroupDstService(task);
+
+		boolean applied = testee.apply(modifications);
+		
+		assertThat(applied).isTrue();
+
+		Map<String, LscDatasets> pivots = testee.getListPivots();
+		IBean bean = testee.getBean("id", pivots.get(groupId), FROM_SAME_SERVICE);
+
+		assertThat(bean.getDatasetFirstValueById("email")).isEqualTo(newGroupEmail);
+	}
+
+	@Test
+	public void applyShouldAddInternalMemberWhenAdded() throws Exception {
+		String groupName = "test group";
+		String groupEmail = "test-group@open-paas.org";
+		String groupId = createGroup(groupName, groupEmail, ImmutableList.of());
+
+		LscModifications modifications = new LscModifications(LscModificationType.UPDATE_OBJECT);
+		modifications.setMainIdentifer(groupId);
+		String newInternalMember = "user1@open-paas.org";
+		LscDatasetModification membersModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "members", ImmutableList.of(newInternalMember));
+		modifications.setLscAttributeModifications(ImmutableList.of(membersModification));
+
+		testee = new OpenpaasGroupDstService(task);
+
+		boolean applied = testee.apply(modifications);
+		
+		assertThat(applied).isTrue();
+
+		Map<String, LscDatasets> pivots = testee.getListPivots();
+		IBean bean = testee.getBean("id", pivots.get(groupId), FROM_SAME_SERVICE);
+
+		assertThat(bean.getDatasetById("members")).containsOnly(newInternalMember);
+	}
+
+	@Test
+	public void applyShouldAddExternalMemberWhenAdded() throws Exception {
+		String groupName = "test group";
+		String groupEmail = "test-group@open-paas.org";
+		String groupId = createGroup(groupName, groupEmail, ImmutableList.of());
+
+		LscModifications modifications = new LscModifications(LscModificationType.UPDATE_OBJECT);
+		modifications.setMainIdentifer(groupId);
+		String newExternalMember = "user@exemple.com";
+		LscDatasetModification membersModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "members", ImmutableList.of(newExternalMember));
+		modifications.setLscAttributeModifications(ImmutableList.of(membersModification));
+
+		testee = new OpenpaasGroupDstService(task);
+
+		boolean applied = testee.apply(modifications);
+		
+		assertThat(applied).isTrue();
+
+		Map<String, LscDatasets> pivots = testee.getListPivots();
+		IBean bean = testee.getBean("id", pivots.get(groupId), FROM_SAME_SERVICE);
+
+		assertThat(bean.getDatasetById("members")).containsOnly(newExternalMember);
+	}
+
+	@Test
+	public void applyShouldAddInternalAndExternalMemberWhenAdded() throws Exception {
+		String groupName = "test group";
+		String groupEmail = "test-group@open-paas.org";
+		String groupId = createGroup(groupName, groupEmail, ImmutableList.of());
+
+		LscModifications modifications = new LscModifications(LscModificationType.UPDATE_OBJECT);
+		modifications.setMainIdentifer(groupId);
+		String newInternalMember = "user1@open-paas.org";
+		String newExternalMember = "user@exemple.com";
+		LscDatasetModification membersModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "members", ImmutableList.of(newInternalMember, newExternalMember));
+		modifications.setLscAttributeModifications(ImmutableList.of(membersModification));
+
+		testee = new OpenpaasGroupDstService(task);
+
+		boolean applied = testee.apply(modifications);
+		
+		assertThat(applied).isTrue();
+
+		Map<String, LscDatasets> pivots = testee.getListPivots();
+		IBean bean = testee.getBean("id", pivots.get(groupId), FROM_SAME_SERVICE);
+
+		assertThat(bean.getDatasetById("members")).containsOnly(newInternalMember, newExternalMember);
+	}
+
+	@Test
+	public void applyShouldRemoveInternalMemberWhenRemoved() throws Exception {
+		String groupName = "test group";
+		String groupEmail = "test-group@open-paas.org";
+		String groupId = createGroup(groupName, groupEmail, ImmutableList.of("user1@open-paas.org", "user2@open-paas.org"));
+
+		LscModifications modifications = new LscModifications(LscModificationType.UPDATE_OBJECT);
+		modifications.setMainIdentifer(groupId);
+		String remainingInternalMember = "user1@open-paas.org";
+		LscDatasetModification membersModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "members", ImmutableList.of(remainingInternalMember));
+		modifications.setLscAttributeModifications(ImmutableList.of(membersModification));
+
+		testee = new OpenpaasGroupDstService(task);
+
+		boolean applied = testee.apply(modifications);
+		
+		assertThat(applied).isTrue();
+
+		Map<String, LscDatasets> pivots = testee.getListPivots();
+		IBean bean = testee.getBean("id", pivots.get(groupId), FROM_SAME_SERVICE);
+
+		assertThat(bean.getDatasetById("members")).containsOnly(remainingInternalMember);
+	}
+
+	@Test
+	public void applyShouldRemoveExternalMemberWhenRemoved() throws Exception {
+		String groupName = "test group";
+		String groupEmail = "test-group@open-paas.org";
+		String groupId = createGroup(groupName, groupEmail, ImmutableList.of("external1@exemple.com", "external2@exemple.com"));
+
+		LscModifications modifications = new LscModifications(LscModificationType.UPDATE_OBJECT);
+		modifications.setMainIdentifer(groupId);
+		String remainingExternalMember = "external1@open-paas.org";
+		LscDatasetModification membersModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "members", ImmutableList.of(remainingExternalMember));
+		modifications.setLscAttributeModifications(ImmutableList.of(membersModification));
+
+		testee = new OpenpaasGroupDstService(task);
+
+		boolean applied = testee.apply(modifications);
+		
+		assertThat(applied).isTrue();
+
+		Map<String, LscDatasets> pivots = testee.getListPivots();
+		IBean bean = testee.getBean("id", pivots.get(groupId), FROM_SAME_SERVICE);
+
+		assertThat(bean.getDatasetById("members")).containsOnly(remainingExternalMember);
+	}
+
+	@Test
+	public void applyShouldRemoveMixedInternalAndExternalMemberWhenRemoved() throws Exception {
+		String groupName = "test group";
+		String groupEmail = "test-group@open-paas.org";
+		String groupId = createGroup(groupName, groupEmail,
+			ImmutableList.of("user1@open-paas.org", "user2@open-paas.org", "external1@exemple.com", "external2@exemple.com"));
+
+		LscModifications modifications = new LscModifications(LscModificationType.UPDATE_OBJECT);
+		modifications.setMainIdentifer(groupId);
+		String remainingInternalMember = "user1@open-paas.org";
+		String remainingExternalMember = "external2@open-paas.org";
+		LscDatasetModification membersModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "members", ImmutableList.of(remainingInternalMember, remainingExternalMember));
+		modifications.setLscAttributeModifications(ImmutableList.of(membersModification));
+
+		testee = new OpenpaasGroupDstService(task);
+
+		boolean applied = testee.apply(modifications);
+		
+		assertThat(applied).isTrue();
+
+		Map<String, LscDatasets> pivots = testee.getListPivots();
+		IBean bean = testee.getBean("id", pivots.get(groupId), FROM_SAME_SERVICE);
+
+		assertThat(bean.getDatasetById("members")).containsOnly(remainingInternalMember, remainingExternalMember);
 	}
 
 	private String createGroup(String name, String email) {

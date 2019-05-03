@@ -50,7 +50,6 @@ import javax.ws.rs.NotFoundException;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.WebApplicationException;
 
-import org.apache.commons.lang.NotImplementedException;
 import org.lsc.LscDatasets;
 import org.lsc.LscModifications;
 import org.lsc.beans.IBean;
@@ -123,7 +122,7 @@ public class OpenpaasGroupDstService implements IWritableService {
 		} catch (ProcessingException e) {
 			LOGGER.error(String.format("ProcessingException while getting bean %s/%s (%s)",
 					pivotName, id, e));
-			LOGGER.debug(e.toString(), e);
+			LOGGER.error(e.toString(), e);
 			throw new LscServiceCommunicationException(e);
 		} catch (NotFoundException e) {
 			LOGGER.debug(String.format("%s/%s not found", pivotName, id));
@@ -171,7 +170,34 @@ public class OpenpaasGroupDstService implements IWritableService {
 
 	@Override
 	public boolean apply(LscModifications lm) throws LscServiceException {
-		throw new NotImplementedException();
+		try {
+			switch(lm.getOperation()) {
+			case CHANGE_ID:
+				LOGGER.warn("Trying to change ID of an OpenPaaS group, impossible operation, ignored.");
+				// Silently return without doing anything
+				return true;
+			case CREATE_OBJECT:
+				LOGGER.debug("Creating OpenPaaS group: " + lm.getMainIdentifier());
+				return openpaasDao.createGroup(GroupWithMembersEmails.fromModifications(lm.getModificationsItemsByHash()));
+			case UPDATE_OBJECT:
+				LOGGER.debug("Getting OpenPaaS group for update: " + lm.getMainIdentifier());
+				GroupWithMembersEmails group = openpaasDao.getGroup(lm.getMainIdentifier());
+				LOGGER.debug("Modifying OpenPaaS group: " + lm.getMainIdentifier() + " with: " + lm.getModificationsItemsByHash());
+				GroupWithMembersEmails modifiedGroup = group.modify(lm.getModificationsItemsByHash());
+				return openpaasDao.modifyGroup(modifiedGroup);
+			case DELETE_OBJECT:
+				LOGGER.debug("Deleting OpenPaaS group: " + lm.getMainIdentifier());
+				return openpaasDao.deleteGroup(lm.getMainIdentifier());
+			default:
+				LOGGER.error(String.format("Unknown operation %s", lm.getOperation()));
+				return false;
+			}
+		} catch (ProcessingException e) {
+			LOGGER.error(String.format("ProcessingException while writing (%s)", e));
+			LOGGER.debug(e.toString(), e);
+			return false;
+		}
+
 	}
 
 	@Override

@@ -42,26 +42,86 @@
  */
 package org.lsc.plugins.connectors.openpaas.beans;
 
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.lsc.LscDatasets;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+
+@JsonIgnoreProperties({"membersToAdd", "membersToRemove"})
 public class GroupWithMembersEmails {
 	private final String id;
 	private final String name;
+
 	private final String email;
 	private final String creator;
-	private final List<String> membersEmails;
+	private final List<String> members;
+	
+	private final List<String> membersToAdd;
+	private final List<String> membersToRemove;
 	
 	public GroupWithMembersEmails(Group group, List<Member> members) {
 		id = group.id;
 		name = group.name;
 		email = group.email;
 		creator = group.creator;
-		membersEmails = members.stream()
+		this.members = members.stream()
 			.map(Member::getEmail)
 			.collect(Collectors.toList());
+		membersToAdd = ImmutableList.of();
+		membersToRemove = ImmutableList.of();
+	}
+	
+	private GroupWithMembersEmails(String id, String name, String email, List<String> membersEmails, List<String> membersToAdd, List<String> membersToRemove) {
+		this.id = id;
+		this.name = name;
+		this.email = email;
+		this.members = membersEmails;
+		this.membersToAdd = membersToAdd;
+		this.membersToRemove = membersToRemove;
+		this.creator = null;
+	}
+
+	public static GroupWithMembersEmails fromModifications(Map<String, List<Object>> modificationsItems) {
+		String name = getFirstValueAsString(modificationsItems, "name", null);
+		String email = getFirstValueAsString(modificationsItems, "email", null);
+		List<String> membersEmails = getMembers(modificationsItems);
+		String id = null;
+		return new GroupWithMembersEmails(id, name, email, ImmutableList.copyOf(membersEmails), ImmutableList.of(), ImmutableList.of());
+	}
+
+	public GroupWithMembersEmails modify(Map<String, List<Object>> modificationsItems) {
+		String name = getFirstValueAsString(modificationsItems, "name", this.name);
+		String email = getFirstValueAsString(modificationsItems, "email", this.email);
+		List<String> newMembers = getMembers(modificationsItems);
+		List<String> membersToAdd = Lists.newArrayList(newMembers);
+		membersToAdd.removeAll(members);
+		List<String> membersToRemove = Lists.newArrayList(members);
+		membersToRemove.removeAll(newMembers);
+		return new GroupWithMembersEmails(id, name, email, ImmutableList.copyOf(newMembers), ImmutableList.copyOf(membersToAdd), ImmutableList.copyOf(membersToRemove));
+	}
+
+	private static String getFirstValueAsString(Map<String, List<Object>> modificationsItems, String key, String defaultValue) {
+		return Optional.ofNullable(modificationsItems.get(key))
+			.filter(values -> values.size() > 0)
+			.map(List::iterator)
+			.map(Iterator::next)
+			.map(String::valueOf)
+			.orElse(defaultValue);
+	}
+
+	private static List<String> getMembers(Map<String, List<Object>> modificationsItems) {
+		return Optional.ofNullable(modificationsItems.get("members"))
+			.map(list -> list.stream()
+				.map(String::valueOf)
+				.collect(Collectors.toList()))
+			.orElse(ImmutableList.of());
 	}
 	
 	public LscDatasets toDatasets() {
@@ -70,11 +130,65 @@ public class GroupWithMembersEmails {
 		datasets.put("name", name);
 		datasets.put("email", email);
 		datasets.put("creator", creator);
-		datasets.put("membersEmails", membersEmails);
+		datasets.put("members", members);
 		return datasets;
 	}
 
 	public String getId() {
 		return id;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public String getEmail() {
+		return email;
+	}
+
+	public String getCreator() {
+		return creator;
+	}
+
+	public List<String> getMembers() {
+		return members;
+	}
+	
+	public List<Membership> getMembersToAdd() {
+		return membersToAdd.stream()
+			.map(Membership::fromEmail)
+			.collect(Collectors.toList());
+	}
+	
+	public List<Membership> getMembersToRemove() {
+		return membersToRemove.stream()
+			.map(Membership::fromEmail)
+			.collect(Collectors.toList());
+	}
+	
+	public static class Membership {
+		private final String member;
+		private final String objectType;
+		
+		private Membership(String member, String objectType) {
+			this.member = member;
+			this.objectType = objectType;
+		}
+		
+		public static Membership fromEmail(String email) {
+			return new Membership(email, "email");
+		}
+		
+		public static Membership fromId(String id) {
+			return new Membership(id, "user");
+		}
+		
+		public String getObjectType() {
+			return objectType;
+		}
+		
+		public String getId() {
+			return member;
+		}
 	}
 }

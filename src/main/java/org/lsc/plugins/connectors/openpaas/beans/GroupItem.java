@@ -45,8 +45,10 @@ package org.lsc.plugins.connectors.openpaas.beans;
 import java.util.Date;
 import java.util.List;
 
+import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.lsc.LscDatasets;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class GroupItem {
 	public String id;
 	public String name;
@@ -54,6 +56,7 @@ public class GroupItem {
 	public String creator;
 	public List<Member> members;
 	
+	@JsonIgnoreProperties(ignoreUnknown = true)
 	public static class Member {
 		public NestedMember member;
 		public String _id;
