@@ -45,18 +45,22 @@ package org.lsc.plugins.connectors.openpaas.beans;
 import java.util.Date;
 import java.util.List;
 
+import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.lsc.LscDatasets;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class UserMember implements Member {
 	public String objectType;
 	public String id;
 	public Timestamp timestamps;
 	public Member member;
 	
+	@JsonIgnoreProperties(ignoreUnknown = true)
 	public static class Timestamp {
 		public Date creation;
 	}
 
+	@JsonIgnoreProperties(ignoreUnknown = true)
 	public static class Member {
 		public String _id;
 		public String firstname;

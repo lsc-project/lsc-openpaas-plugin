@@ -62,11 +62,13 @@ public class GroupItem {
 		public String _id;
 		public Timestamp timestamps;
 
+		@JsonIgnoreProperties(ignoreUnknown = true)
 		public static class NestedMember {
 			public String objectType;
 			public String id;
 		}
 		
+		@JsonIgnoreProperties(ignoreUnknown = true)
 		public static class Timestamp {
 			public Date creation;
 		}

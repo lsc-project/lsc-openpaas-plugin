@@ -44,14 +44,17 @@ package org.lsc.plugins.connectors.openpaas.beans;
 
 import java.util.Date;
 
+import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.lsc.LscDatasets;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class EmailMember implements Member {
 	public String objectType;
 	public String id;
 	public Timestamp timestamps;
 	public String member;
 	
+	@JsonIgnoreProperties(ignoreUnknown = true)
 	public static class Timestamp {
 		public Date creation;
 	}
