@@ -261,6 +261,24 @@ public class OpenpaasGroupDstServiceTest {
 	}
 
 	@Test
+	public void getListPivotsShouldReturnOneWhenOneGroupWithSubgroup() throws Exception {
+		String groupName = "test group";
+		String groupEmail = "test-group@open-paas.org";
+		String subGroupEmail = "subgroup@open-paas.org";
+		String subgroupId = createGroup("subgroup", subGroupEmail, ImmutableList.of());
+		String groupId = createGroup(groupName, groupEmail, ImmutableList.of(subGroupEmail));
+		
+        testee = new OpenpaasGroupDstService(task);
+
+        Map<String, LscDatasets> listPivots = testee.getListPivots();
+        
+        assertThat(listPivots).containsOnlyKeys(groupId, subgroupId);
+        assertThat(listPivots.get(groupId).getStringValueAttribute("name")).isEqualTo(groupName);
+        assertThat(listPivots.get(groupId).getStringValueAttribute("email")).isEqualTo(groupEmail);
+        assertThat(listPivots.get(groupId).getListValueAttribute("members")).hasSize(1);
+	}
+
+	@Test
 	public void getBeanShouldReturnNullWhenEmptyDataset() throws Exception {
         testee = new OpenpaasGroupDstService(task);
 
@@ -345,14 +363,14 @@ public class OpenpaasGroupDstServiceTest {
         assertThat(bean.getDatasetFirstValueById("email")).isEqualTo(groupEmail);
         assertThat(bean.getDatasetById("members")).containsOnly(member1, member2);
 	}
-
+	
 	@Test
-	public void getBeanShouldReturnMixedMembersWhenPresent() throws Exception {
+	public void getBeanShouldReturnSubgroupWhenPresent() throws Exception {
 		String groupName = "test group";
 		String groupEmail = "test-group@open-paas.org";
-		String internalMember = "user1@open-paas.org";
-		String externalMember = "member@exemple.com";
-		String groupId = createGroup(groupName, groupEmail, ImmutableList.of(internalMember, externalMember));
+		String subGroupEmail = "subgroup@open-paas.org";
+		createGroup("subgroup", subGroupEmail, ImmutableList.of());
+		String groupId = createGroup(groupName, groupEmail, ImmutableList.of(subGroupEmail));
 
         testee = new OpenpaasGroupDstService(task);
 
@@ -361,7 +379,27 @@ public class OpenpaasGroupDstServiceTest {
         
         assertThat(bean.getDatasetFirstValueById("name")).isEqualTo(groupName);
         assertThat(bean.getDatasetFirstValueById("email")).isEqualTo(groupEmail);
-        assertThat(bean.getDatasetById("members")).containsOnly(internalMember, externalMember);
+        assertThat(bean.getDatasetById("members")).containsOnly(subGroupEmail);
+	}
+
+	@Test
+	public void getBeanShouldReturnMixedMembersWhenPresent() throws Exception {
+		String groupName = "test group";
+		String groupEmail = "test-group@open-paas.org";
+		String internalMember = "user1@open-paas.org";
+		String externalMember = "member@exemple.com";
+		String subGroupEmail = "subgroup@open-paas.org";
+		createGroup("subgroup", subGroupEmail, ImmutableList.of());
+		String groupId = createGroup(groupName, groupEmail, ImmutableList.of(internalMember, externalMember, subGroupEmail));
+
+        testee = new OpenpaasGroupDstService(task);
+
+        Map<String, LscDatasets> pivots = testee.getListPivots();
+        IBean bean = testee.getBean("id", pivots.get(groupId), FROM_SAME_SERVICE);
+        
+        assertThat(bean.getDatasetFirstValueById("name")).isEqualTo(groupName);
+        assertThat(bean.getDatasetFirstValueById("email")).isEqualTo(groupEmail);
+        assertThat(bean.getDatasetById("members")).containsOnly(internalMember, externalMember, subGroupEmail);
 	}
 
 	@Test
