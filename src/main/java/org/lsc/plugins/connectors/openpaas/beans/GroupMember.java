@@ -42,20 +42,51 @@
  */
 package org.lsc.plugins.connectors.openpaas.beans;
 
-import org.codehaus.jackson.annotate.JsonSubTypes;
-import org.codehaus.jackson.annotate.JsonSubTypes.Type;
-import org.codehaus.jackson.annotate.JsonTypeInfo;
+import java.util.Date;
 
-@JsonTypeInfo(
-	    use = JsonTypeInfo.Id.NAME,
-	    include = JsonTypeInfo.As.PROPERTY,
-	    property = "objectType")
-	@JsonSubTypes({
-	    @Type(value = EmailMember.class, name = "email"),
-	    @Type(value = GroupMember.class, name = "group"),
-	    @Type(value = UserMember.class, name = "user") })
-public interface Member {
-	String getObjectType();
-	String getId();
-	String getEmail();
+import org.codehaus.jackson.annotate.JsonIgnoreProperties;
+import org.lsc.LscDatasets;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class GroupMember implements Member {
+	public String objectType;
+	public Member member;
+	public String id;
+	public Timestamp timestamps;
+	
+	@JsonIgnoreProperties(ignoreUnknown = true)
+	public static class Timestamp {
+		public Date creation;
+	}
+
+	@JsonIgnoreProperties(ignoreUnknown = true)
+	public static class Member {
+		public String _id;
+		public String name;
+		public String creator;
+		public String email;
+	}
+	
+	public LscDatasets toDatasets() {
+		LscDatasets datasets = new LscDatasets();
+		datasets.put("objectType", objectType);
+		datasets.put("id", id);
+		datasets.put("email", member.email);
+		return datasets;
+	}
+
+	@Override
+	public String getObjectType() {
+		return objectType;
+	}
+
+	@Override
+	public String getId() {
+		return id;
+	}
+
+	@Override
+	public String getEmail() {
+		return member.email;
+	}
 }

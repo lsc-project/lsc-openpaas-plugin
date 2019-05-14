@@ -179,8 +179,12 @@ public class GroupWithMembersEmails {
 			return new Membership(email, "email");
 		}
 		
-		public static Membership fromId(String id) {
-			return new Membership(id, "user");
+		public static Membership fromUserId(String userId) {
+			return new Membership(userId, "user");
+		}
+		
+		public static Membership fromGroupId(String groupId) {
+			return new Membership(groupId, "group");
 		}
 		
 		public String getObjectType() {

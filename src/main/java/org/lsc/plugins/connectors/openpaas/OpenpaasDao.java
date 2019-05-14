@@ -177,9 +177,10 @@ public class OpenpaasDao {
 		if (membersToAdd.size() == 0) {
 			return true;
 		}
+		List<Membership> membersToAddWithIdForSubgroups = replaceEmailByIdForSubgroups(membersToAdd);
 		WebTarget target = groupTarget.path("members").queryParam("action", "add");
 		LOGGER.debug("POSTing group: " + target.getUri().toString());
-		Response response = target.request().post(Entity.entity(membersToAdd, MediaType.APPLICATION_JSON_TYPE));
+		Response response = target.request().post(Entity.entity(membersToAddWithIdForSubgroups, MediaType.APPLICATION_JSON_TYPE));
 		String rawResponseBody = response.readEntity(String.class);
 		response.close();
 		if (checkResponse(response)) {
@@ -199,7 +200,7 @@ public class OpenpaasDao {
 		if (membersToRemove.size() == 0) {
 			return true;
 		}
-		List<Membership> membersToRemoveWithIdForInternalMembers = replaceEmailByIdForInternalMembersToRemove(membersToRemove);
+		List<Membership> membersToRemoveWithIdForInternalMembers = replaceEmailByIdForInternalMembersOrSubgroupsToRemove(membersToRemove);
 		WebTarget target = groupTarget.path("members").queryParam("action", "remove");
 		LOGGER.debug("POSTing group: " + target.getUri().toString());
 		Response response = target.request().post(Entity.entity(membersToRemoveWithIdForInternalMembers, MediaType.APPLICATION_JSON_TYPE));
@@ -218,17 +219,34 @@ public class OpenpaasDao {
 		}
 	}
 	
-	private List<Membership> replaceEmailByIdForInternalMembersToRemove(List<Membership> membersToRemove) {
+	private List<Membership> replaceEmailByIdForInternalMembersOrSubgroupsToRemove(List<Membership> membersToRemove) {
 		return membersToRemove.stream()
-			.map(this::replaceEmailByIdIfInternalMember)
+			.map(this::replaceEmailByIdIfInternalMemberOrSubgroup)
 			.collect(Collectors.toList());
 	}
 	
-	private Membership replaceEmailByIdIfInternalMember(Membership membership) {
+	private List<Membership> replaceEmailByIdForSubgroups(List<Membership> members) {
+		return members.stream()
+			.map(this::replaceEmailByIdIfSubgroup)
+			.collect(Collectors.toList());
+	}
+	
+	private Membership replaceEmailByIdIfInternalMemberOrSubgroup(Membership membership) {
 		String email = membership.getId();
 		Optional<String> id = lookForId(email);
+		Optional<String> groupId = lookForGroup(email);
 		return id
-			.map(Membership::fromId)
+			.map(Membership::fromUserId)
+			.orElse(groupId
+				.map(Membership::fromGroupId)
+				.orElse(membership));
+	}
+
+	private Membership replaceEmailByIdIfSubgroup(Membership membership) {
+		String email = membership.getId();
+		Optional<String> groupId = lookForGroup(email);
+		return groupId
+			.map(Membership::fromGroupId)
 			.orElse(membership);
 	}
 
@@ -254,4 +272,19 @@ public class OpenpaasDao {
 			return id;
 		}
 	}
+
+	private Optional<String> lookForGroup(String email) {
+		WebTarget userTarget = groupClient.queryParam("email", email);
+		LOGGER.debug("GETting group: " + userTarget.getUri().toString());
+		List<Group> groups = userTarget.request().get(new GenericType<List<Group>>(){});
+		if (groups.isEmpty()) {
+			return Optional.empty();
+		}
+		if (groups.size() > 1) {
+			LOGGER.warn(String.format("Too many groups (%d) found for email: %s", groups.size(), email));
+			return Optional.empty();
+		}
+		return Optional.of(groups.get(0).id);
+	}
+	
 }
