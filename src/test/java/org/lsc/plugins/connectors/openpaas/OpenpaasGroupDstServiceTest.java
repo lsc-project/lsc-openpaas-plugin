@@ -388,7 +388,7 @@ public class OpenpaasGroupDstServiceTest {
 		String groupName = "test group";
 		String groupEmail = "test-group@open-paas.org";
 		String internalMember = "user1@open-paas.org";
-		String externalMember = "member@exemple.com";
+		String externalMember = "member@example.com";
 		String subGroupEmail = "subgroup@open-paas.org";
 		createGroup("subgroup", subGroupEmail, ImmutableList.of());
 		String groupId = createGroup(groupName, groupEmail, ImmutableList.of(internalMember, externalMember, subGroupEmail));
@@ -461,7 +461,7 @@ public class OpenpaasGroupDstServiceTest {
 		String groupEmail = "new-group-email@open-paas.org";
 		LscDatasetModification emailModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "email", ImmutableList.of(groupEmail));
 		String internalMember = "user1@open-paas.org";
-		String externalMember = "member@exemple.com";
+		String externalMember = "member@example.com";
 		String subGroupEmail = "subgroup@open-paas.org";
 		createGroup("subgroup", subGroupEmail, ImmutableList.of());
 		LscDatasetModification memberModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "members", ImmutableList.of(internalMember, externalMember, subGroupEmail));
@@ -489,7 +489,7 @@ public class OpenpaasGroupDstServiceTest {
 		LscDatasetModification nameModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "name", ImmutableList.of(groupName));
 		String groupEmail = "new-group-email@open-paas.org";
 		LscDatasetModification emailModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "email", ImmutableList.of(groupEmail));
-		String externalMember = "member@exemple.com";
+		String externalMember = "member@example.com";
 		LscDatasetModification memberModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "members", ImmutableList.of(externalMember));
 		modifications.setLscAttributeModifications(ImmutableList.of(nameModification, emailModification, memberModification));
 
@@ -658,7 +658,7 @@ public class OpenpaasGroupDstServiceTest {
 
 		LscModifications modifications = new LscModifications(LscModificationType.UPDATE_OBJECT);
 		modifications.setMainIdentifer(groupId);
-		String newExternalMember = "user@exemple.com";
+		String newExternalMember = "user@example.com";
 		LscDatasetModification membersModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "members", ImmutableList.of(newExternalMember));
 		modifications.setLscAttributeModifications(ImmutableList.of(membersModification));
 
@@ -734,7 +734,7 @@ public class OpenpaasGroupDstServiceTest {
 		LscModifications modifications = new LscModifications(LscModificationType.UPDATE_OBJECT);
 		modifications.setMainIdentifer(groupId);
 		String newInternalMember = "user1@open-paas.org";
-		String newExternalMember = "user@exemple.com";
+		String newExternalMember = "user@example.com";
 		LscDatasetModification membersModification = new LscDatasetModification(LscDatasetModificationType.REPLACE_VALUES, "members", ImmutableList.of(newInternalMember, newExternalMember));
 		modifications.setLscAttributeModifications(ImmutableList.of(membersModification));
 
@@ -778,7 +778,7 @@ public class OpenpaasGroupDstServiceTest {
 	public void applyShouldRemoveExternalMemberWhenRemoved() throws Exception {
 		String groupName = "test group";
 		String groupEmail = "test-group@open-paas.org";
-		String groupId = createGroup(groupName, groupEmail, ImmutableList.of("external1@exemple.com", "external2@exemple.com"));
+		String groupId = createGroup(groupName, groupEmail, ImmutableList.of("external1@example.com", "external2@example.com"));
 
 		LscModifications modifications = new LscModifications(LscModificationType.UPDATE_OBJECT);
 		modifications.setMainIdentifer(groupId);
@@ -804,7 +804,7 @@ public class OpenpaasGroupDstServiceTest {
 		String groupEmail = "test-group@open-paas.org";
 		String groupId = createGroup(groupName, groupEmail, ImmutableList.of());
 		String newSubGroupMember = "subgroup@open-paas.org";
-		createGroup("subgroup", newSubGroupMember, ImmutableList.of("external1@exemple.com"));
+		createGroup("subgroup", newSubGroupMember, ImmutableList.of("external1@example.com"));
 		String newSubGroupMember2 = "subgroup2@open-paas.org";
 		createGroup("subgroup2", newSubGroupMember2, ImmutableList.of("user1@open-paas.org"));
 		
@@ -842,7 +842,7 @@ public class OpenpaasGroupDstServiceTest {
 		String groupName = "test group";
 		String groupEmail = "test-group@open-paas.org";
 		String groupId = createGroup(groupName, groupEmail,
-			ImmutableList.of("user1@open-paas.org", "user2@open-paas.org", "external1@exemple.com", "external2@exemple.com"));
+			ImmutableList.of("user1@open-paas.org", "user2@open-paas.org", "external1@example.com", "external2@example.com"));
 
 		LscModifications modifications = new LscModifications(LscModificationType.UPDATE_OBJECT);
 		modifications.setMainIdentifer(groupId);
