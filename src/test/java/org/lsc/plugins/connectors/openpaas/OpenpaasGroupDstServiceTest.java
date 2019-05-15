@@ -55,9 +55,12 @@ import static org.mockito.Mockito.when;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.apache.http.HttpStatus;
 import org.junit.jupiter.api.AfterAll;
@@ -136,6 +139,7 @@ public class OpenpaasGroupDstServiceTest {
     @AfterEach
     void cleanAllGroups() {
     	List<String> groupIds = with()
+			.param("limit", String.valueOf(Integer.MAX_VALUE))
     		.get("")
     		.jsonPath()
 			.getList("id");
@@ -863,6 +867,60 @@ public class OpenpaasGroupDstServiceTest {
 		assertThat(bean.getDatasetById("members")).containsOnly(remainingInternalMember, remainingExternalMember);
 	}
 
+	@Test
+	public void getListPivotsShouldReturnOneWhenOneGroupWith1000Members() throws Exception {
+		String groupName = "test group";
+		String groupEmail = "test-group@open-paas.org";
+		List<String> members = IntStream.range(0, 1000)
+			.mapToObj(i -> "user" + i + "@example.com")
+			.collect(Collectors.toList());
+		String groupId = createGroup(groupName, groupEmail, members);
+		
+        testee = new OpenpaasGroupDstService(task);
+
+        Map<String, LscDatasets> listPivots = testee.getListPivots();
+        
+        assertThat(listPivots).containsOnlyKeys(groupId);
+        assertThat(listPivots.get(groupId).getStringValueAttribute("name")).isEqualTo(groupName);
+        assertThat(listPivots.get(groupId).getStringValueAttribute("email")).isEqualTo(groupEmail);
+        assertThat(listPivots.get(groupId).getListValueAttribute("members")).hasSize(1000);
+	}
+
+	@Test
+	public void getBeanShouldReturn1000MembersWhenOneGroupWith1000Members() throws Exception {
+		String groupName = "test group";
+		String groupEmail = "test-group@open-paas.org";
+		List<String> members = IntStream.range(0, 1000)
+			.mapToObj(i -> "user" + i + "@example.com")
+			.collect(Collectors.toList());
+		String groupId = createGroup(groupName, groupEmail, members);
+
+        testee = new OpenpaasGroupDstService(task);
+
+        Map<String, LscDatasets> pivots = testee.getListPivots();
+        IBean bean = testee.getBean("id", pivots.get(groupId), FROM_SAME_SERVICE);
+        
+        assertThat(bean.getDatasetFirstValueById("name")).isEqualTo(groupName);
+        assertThat(bean.getDatasetFirstValueById("email")).isEqualTo(groupEmail);
+        assertThat(bean.getDatasetById("members")).hasSize(1000);
+	}
+	
+	@Test
+	public void getListPivotsShouldReturn100When100Groups() throws Exception {
+		List<String> groupIds = new ArrayList<>(100);
+		IntStream.range(0, 100).forEach(i -> {
+			String groupId = createGroup("test group" + i, "test-group" + i + "@open-paas.org");
+			groupIds.add(groupId);
+		});
+		
+        testee = new OpenpaasGroupDstService(task);
+
+        Map<String, LscDatasets> listPivots = testee.getListPivots();
+        
+        assertThat(listPivots).hasSize(100);
+        assertThat(listPivots).containsOnlyKeys(groupIds.toArray(new String[] {}));
+	}
+
 	private String createGroup(String name, String email) {
     	return with()
 			.body("{"
@@ -876,7 +934,7 @@ public class OpenpaasGroupDstServiceTest {
 			.path("id");
 	}
 
-	private String createGroup(String groupName, String groupEmail, ImmutableList<String> members) {
+	private String createGroup(String groupName, String groupEmail, List<String> members) {
 		StringJoiner membersAsString = new StringJoiner("\", \"", "\"", "\"")
 			.setEmptyValue("");
 		members.forEach(membersAsString::add);

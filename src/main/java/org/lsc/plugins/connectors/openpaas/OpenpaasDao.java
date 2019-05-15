@@ -70,6 +70,8 @@ import org.slf4j.LoggerFactory;
 
 public class OpenpaasDao {
 	
+	public static final int GROUPS_LIMIT = Integer.MAX_VALUE;
+	public static final int MEMBERS_LIMIT = Integer.MAX_VALUE;
 	public static final String GROUP_PATH = "/group/api/groups"; 
 	public static final String USER_PATH = "/api/users"; 
 	
@@ -92,14 +94,14 @@ public class OpenpaasDao {
 	}
 	
 	public List<GroupItem> getGroupList() throws ProcessingException, WebApplicationException {
-		WebTarget target = groupClient.path("");
+		WebTarget target = groupClient.path("").queryParam("limit", GROUPS_LIMIT);
 		LOGGER.debug("GETting " + ":" + target.getUri().toString());
 		return target.request().get(new GenericType<List<GroupItem>>(){});
 	}
 
 	public GroupWithMembersEmails getGroup(String mainIdentifier) throws ProcessingException, WebApplicationException {
 		WebTarget groupTarget = groupClient.path(mainIdentifier);
-		WebTarget membersTarget = groupClient.path(mainIdentifier).path("members");
+		WebTarget membersTarget = groupClient.path(mainIdentifier).path("members").queryParam("limit", MEMBERS_LIMIT);
 		LOGGER.debug("GETting group: " + groupTarget.getUri().toString());
 		Group group = groupTarget.request().get(Group.class);
 		LOGGER.debug("GETting group members: " + membersTarget.getUri().toString());
