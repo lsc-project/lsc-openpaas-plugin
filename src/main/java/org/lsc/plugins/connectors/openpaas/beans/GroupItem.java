@@ -42,9 +42,6 @@
  */
 package org.lsc.plugins.connectors.openpaas.beans;
 
-import java.util.Date;
-import java.util.List;
-
 import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.lsc.LscDatasets;
 
@@ -54,33 +51,10 @@ public class GroupItem {
 	public String name;
 	public String email;
 	public String creator;
-	public List<Member> members;
-	
-	@JsonIgnoreProperties(ignoreUnknown = true)
-	public static class Member {
-		public NestedMember member;
-		public String _id;
-		public Timestamp timestamps;
-
-		@JsonIgnoreProperties(ignoreUnknown = true)
-		public static class NestedMember {
-			public String objectType;
-			public String id;
-		}
-		
-		@JsonIgnoreProperties(ignoreUnknown = true)
-		public static class Timestamp {
-			public Date creation;
-		}
-	}
 	
 	public LscDatasets toDatasets() {
 		LscDatasets datasets = new LscDatasets();
-		datasets.put("id", id);
-		datasets.put("name", name);
 		datasets.put("email", email);
-		datasets.put("creator", creator);
-		datasets.put("members", members);
 		return datasets;
 	}
 }

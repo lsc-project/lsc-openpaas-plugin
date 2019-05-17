@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import javax.ws.rs.NotFoundException;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.ClientBuilder;
@@ -95,15 +96,22 @@ public class OpenpaasDao {
 	
 	public List<GroupItem> getGroupList() throws ProcessingException, WebApplicationException {
 		WebTarget target = groupClient.path("").queryParam("limit", GROUPS_LIMIT);
-		LOGGER.debug("GETting " + ":" + target.getUri().toString());
+		LOGGER.debug("GETting group list: " + target.getUri().toString());
 		return target.request().get(new GenericType<List<GroupItem>>(){});
 	}
 
-	public GroupWithMembersEmails getGroup(String mainIdentifier) throws ProcessingException, WebApplicationException {
-		WebTarget groupTarget = groupClient.path(mainIdentifier);
-		WebTarget membersTarget = groupClient.path(mainIdentifier).path("members").queryParam("limit", MEMBERS_LIMIT);
+	public GroupWithMembersEmails getGroup(String email) throws ProcessingException, WebApplicationException {
+		WebTarget groupTarget = groupClient.queryParam("email", email);
 		LOGGER.debug("GETting group: " + groupTarget.getUri().toString());
-		Group group = groupTarget.request().get(Group.class);
+		List<Group> groups = groupTarget.request().get(new GenericType<List<Group>>(){});
+		if (groups.isEmpty()) {
+			throw new NotFoundException();
+		}
+		if (groups.size() > 1) {
+			throw new ProcessingException(String.format("More than one group (%d) found for email: %s", groups.size(), email));
+		}
+		Group group = groups.get(0);
+		WebTarget membersTarget = groupClient.path(group.id).path("members").queryParam("limit", MEMBERS_LIMIT);
 		LOGGER.debug("GETting group members: " + membersTarget.getUri().toString());
 		List<Member> members = membersTarget.request().get(new GenericType<List<Member>>(){});
 		return new GroupWithMembersEmails(group, members);
@@ -128,8 +136,9 @@ public class OpenpaasDao {
 		}
 	}
 	
-	public boolean deleteGroup(String mainIdentifier) {
-		WebTarget target = groupClient.path(mainIdentifier);
+	public boolean deleteGroup(String email) {
+		String groupId = lookForGroup(email).orElseThrow(() -> new NotFoundException());
+		WebTarget target = groupClient.path(groupId);
 		LOGGER.debug("DELETing group: " + target.getUri().toString());
 		Response response = target.request().delete();
 		String rawResponseBody = response.readEntity(String.class);

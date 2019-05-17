@@ -112,24 +112,25 @@ public class OpenpaasGroupDstService implements IWritableService {
 		if (pivotAttributes.getAttributesNames().size() < 1) {
 			return null;
 		}
-		String id = pivotAttributes.getStringValueAttribute(pivotName);
-		if (id == null) {
+		String pivotAttribute = pivotAttributes.getAttributesNames().get(0);
+		String email = pivotAttributes.getStringValueAttribute(pivotAttribute);
+		if (email == null) {
 			return null;
 		}
 		try {
-			GroupWithMembersEmails group = openpaasDao.getGroup(id);
+			GroupWithMembersEmails group = openpaasDao.getGroup(email);
 			return groupToBean(group);
 		} catch (ProcessingException e) {
 			LOGGER.error(String.format("ProcessingException while getting bean %s/%s (%s)",
-					pivotName, id, e));
+					pivotName, email, e));
 			LOGGER.error(e.toString(), e);
 			throw new LscServiceCommunicationException(e);
 		} catch (NotFoundException e) {
-			LOGGER.debug(String.format("%s/%s not found", pivotName, id));
+			LOGGER.debug(String.format("%s/%s not found", pivotName, email));
 			return null;
 		} catch (WebApplicationException e) {
 			LOGGER.error(String.format("WebApplicationException while getting bean %s/%s (%s)",
-					pivotName, id, e));
+					pivotName, email, e));
 			LOGGER.debug(e.toString(), e);
 			throw new LscServiceException(e);
 		} catch (InstantiationException | IllegalAccessException e) {
@@ -142,7 +143,7 @@ public class OpenpaasGroupDstService implements IWritableService {
 
 	private IBean groupToBean(GroupWithMembersEmails group) throws InstantiationException, IllegalAccessException {
 		IBean bean = beanClass.newInstance();
-		bean.setMainIdentifier(group.getId());
+		bean.setMainIdentifier(group.getEmail());
 		bean.setDatasets(group.toDatasets());
 		return bean;
 	}
@@ -154,7 +155,7 @@ public class OpenpaasGroupDstService implements IWritableService {
 
 			Map<String, LscDatasets> listPivots = new HashMap<String, LscDatasets>();
 			for (GroupItem group: groupList) {
-				listPivots.put(group.id, group.toDatasets());
+				listPivots.put(group.email, group.toDatasets());
 			}
 			return ImmutableMap.copyOf(listPivots);
 		} catch (ProcessingException e) {
