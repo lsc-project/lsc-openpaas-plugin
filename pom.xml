@@ -4,7 +4,7 @@
 	<groupId>org.lsc.plugins.connectors</groupId>
 	<artifactId>openpaas</artifactId>
 	<name>LDAP Synchronization Connector OpenPaaS plugin</name>
-	<version>0.9</version>
+	<version>1.0</version>
 	<description>
 	This project provides an OpenPaaS destination plugin for LSC
 	</description>
