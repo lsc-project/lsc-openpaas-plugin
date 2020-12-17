@@ -44,7 +44,6 @@ package org.lsc.plugins.connectors.openpaas;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.ProcessingException;
@@ -57,7 +56,6 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
-import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.glassfish.jersey.client.filter.HttpBasicAuthFilter;
 import org.glassfish.jersey.jackson.JacksonFeature;
 import org.lsc.configuration.TaskType;
@@ -74,24 +72,17 @@ public class OpenpaasDao {
 	public static final int GROUPS_LIMIT = Integer.MAX_VALUE;
 	public static final int MEMBERS_LIMIT = Integer.MAX_VALUE;
 	public static final String GROUP_PATH = "/group/api/groups"; 
-	public static final String USER_PATH = "/api/users"; 
-	
+
 	protected static final Logger LOGGER = LoggerFactory.getLogger(OpenpaasDao.class);
 
 	private WebTarget groupClient;
-	private WebTarget userClient;
-	
+
 	public OpenpaasDao(String url, String username, String password, TaskType task) {
 		groupClient = ClientBuilder.newClient()
 				.register(new HttpBasicAuthFilter(username, password))
 				.register(JacksonFeature.class)
 				.target(url)
 				.path(GROUP_PATH);
-		userClient = ClientBuilder.newClient()
-				.register(new HttpBasicAuthFilter(username, password))
-				.register(JacksonFeature.class)
-				.target(url)
-				.path(USER_PATH);
 	}
 	
 	public List<GroupItem> getGroupList() throws ProcessingException, WebApplicationException {
@@ -188,10 +179,9 @@ public class OpenpaasDao {
 		if (membersToAdd.size() == 0) {
 			return true;
 		}
-		List<Membership> membersToAddWithIdForSubgroups = replaceEmailByIdForSubgroups(membersToAdd);
 		WebTarget target = groupTarget.path("members").queryParam("action", "add");
 		LOGGER.debug("POSTing group: " + target.getUri().toString());
-		Response response = target.request().post(Entity.entity(membersToAddWithIdForSubgroups, MediaType.APPLICATION_JSON_TYPE));
+		Response response = target.request().post(Entity.entity(membersToAdd, MediaType.APPLICATION_JSON_TYPE));
 		String rawResponseBody = response.readEntity(String.class);
 		response.close();
 		if (checkResponse(response)) {
@@ -211,10 +201,9 @@ public class OpenpaasDao {
 		if (membersToRemove.size() == 0) {
 			return true;
 		}
-		List<Membership> membersToRemoveWithIdForInternalMembers = replaceEmailByIdForInternalMembersOrSubgroupsToRemove(membersToRemove);
 		WebTarget target = groupTarget.path("members").queryParam("action", "remove");
 		LOGGER.debug("POSTing group: " + target.getUri().toString());
-		Response response = target.request().post(Entity.entity(membersToRemoveWithIdForInternalMembers, MediaType.APPLICATION_JSON_TYPE));
+		Response response = target.request().post(Entity.entity(membersToRemove, MediaType.APPLICATION_JSON_TYPE));
 		String rawResponseBody = response.readEntity(String.class);
 		response.close();
 		if (checkResponse(response)) {
@@ -227,60 +216,6 @@ public class OpenpaasDao {
 					rawResponseBody,
 					target.getUri().toString()));
 			return false;
-		}
-	}
-	
-	private List<Membership> replaceEmailByIdForInternalMembersOrSubgroupsToRemove(List<Membership> membersToRemove) {
-		return membersToRemove.stream()
-			.map(this::replaceEmailByIdIfInternalMemberOrSubgroup)
-			.collect(Collectors.toList());
-	}
-	
-	private List<Membership> replaceEmailByIdForSubgroups(List<Membership> members) {
-		return members.stream()
-			.map(this::replaceEmailByIdIfSubgroup)
-			.collect(Collectors.toList());
-	}
-	
-	private Membership replaceEmailByIdIfInternalMemberOrSubgroup(Membership membership) {
-		String email = membership.getId();
-		Optional<String> id = lookForId(email);
-		Optional<String> groupId = lookForGroup(email);
-		return id
-			.map(Membership::fromUserId)
-			.orElse(groupId
-				.map(Membership::fromGroupId)
-				.orElse(membership));
-	}
-
-	private Membership replaceEmailByIdIfSubgroup(Membership membership) {
-		String email = membership.getId();
-		Optional<String> groupId = lookForGroup(email);
-		return groupId
-			.map(Membership::fromGroupId)
-			.orElse(membership);
-	}
-
-	private Optional<String> lookForId(String email) {
-		WebTarget userTarget = userClient.queryParam("email", email);
-		LOGGER.debug("GETting user: " + userTarget.getUri().toString());
-		List<User> users = userTarget.request().get(new GenericType<List<User>>(){});
-		if (users.isEmpty()) {
-			return Optional.empty();
-		}
-		if (users.size() > 1) {
-			LOGGER.warn(String.format("Too many users (%d) found for email: %s", users.size(), email));
-			return Optional.empty();
-		}
-		return Optional.of(users.get(0).getId());
-	}
-	
-	@JsonIgnoreProperties(ignoreUnknown = true)
-	private static class User {
-		private String id;
-		
-		public String getId() {
-			return id;
 		}
 	}
 
