@@ -3,7 +3,7 @@ version: '2'
 services:
 
   esn:
-    image: linagora/esn:1.4.6
+    image: linagora/esn:1.9.0-rc1
     ports:
      - "8080:8080"
     environment:
@@ -42,7 +42,7 @@ services:
 
   rabbitmq:
     container_name: esn_rabbitmq
-    image: rabbitmq:3.6.5-management
+    image: rabbitmq:3.8.1-management
     hostname: esn-rabbit
     ports:
       - 5672:5672
@@ -56,16 +56,24 @@ services:
       - "27017:27017"
 
   elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.3.2
     container_name: esn_elasticsearch
-    image: elasticsearch:2.3.2
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - ELASTICSEARCH_INIT_TIMEOUT=${ELASTICSEARCH_INIT_TIMEOUT}
+      - CLUSTER_NAME=openpaas
+      - HTTP_ENABLE=false
+      - NODE_MASTER=true
+      - NETWORK_HOST=0.0.0.0
+      - NODE_DATA=true
     ports:
       - "9200:9200"
-    environment:
-      - ELASTICSEARCH_INIT_TIMEOUT=${ELASTICSEARCH_INIT_TIMEOUT}
+
 
   sabre:
     container_name: esn_sabre
-    image: linagora/esn-sabre:1.4.6
+    image: linagora/esn-sabre:1.9.0-rc1
     ports:
       - "8001:80"
     environment:

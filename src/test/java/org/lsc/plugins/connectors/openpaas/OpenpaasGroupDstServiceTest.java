@@ -66,7 +66,6 @@ import org.apache.http.HttpStatus;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.lsc.LscDatasetModification;
 import org.lsc.LscDatasetModification.LscDatasetModificationType;
@@ -538,7 +537,6 @@ public class OpenpaasGroupDstServiceTest {
 	}
 	
 	@Test
-	@Disabled("Bug in OpenPaaS 1.4.6")
 	public void createShouldCreateGroupWithSubGroupMemberWithGroupObjectTypeWhenCreated() throws Exception {
 		LscModifications modifications = new LscModifications(LscModificationType.CREATE_OBJECT);
 		String groupName = "new group name";
