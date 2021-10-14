@@ -3,7 +3,7 @@ version: '2'
 services:
 
   esn:
-    image: linagora/esn:1.9.0-rc1
+    image: linagora/esn:1.9.0-rc9
     ports:
      - "8080:8080"
     environment:
@@ -72,7 +72,7 @@ services:
 
   sabre:
     hostname: esn_sabre
-    image: linagora/esn-sabre:1.9.0-rc1
+    image: linagora/esn-sabre:1.9.0-rc8
     ports:
       - "8001:80"
     environment:
